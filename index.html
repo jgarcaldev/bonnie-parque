@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bonnieeeeeeeeeee parque!!!!</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+            position: relative;
+            margin: 0;
+            padding: 0;
+        }
+        canvas {
+            border: 2px solid black;
+            display: block;
+            margin: 40px auto;
+            position: relative;
+        }
+        #livesContainer {
+            position: absolute;
+            top: 20px;
+            right: 50px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .life {
+            width: 50px;
+            height: 50px;
+        }
+        #livesText {
+            font-size: 18px;
+            font-weight: bold;
+            color: #fff;
+        }
+        /* Controles de flechas fuera del canvas */
+        #arrowContainer {
+            position: absolute;
+            bottom: -60px; /* Ajustado para que esté debajo del canvas */
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+        }
+        .arrow {
+            width: 50px;
+            height: 50px;
+            background-color: rgba(190, 186, 186, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .arrow-left { background-image: url('left-arrow.png'); }
+        .arrow-right { background-image: url('right-arrow.png'); }
+    </style>
+</head>
+<body>
+    <h1>Bonnieeeeeeeeeee parque!!!!</h1>
+
+    <!-- Contenedor de vidas (huellas) -->
+    <div id="livesContainer">
+        <span id="livesText">Vidas</span>
+        <div id="lives"></div>
+    </div>
+
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <!-- Controles de flechas fuera del canvas -->
+    <div id="arrowContainer">
+        <div class="arrow arrow-left" id="arrowLeft"></div>
+        <div class="arrow arrow-right" id="arrowRight"></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const livesElement = document.getElementById('lives');
+        const arrowLeft = document.getElementById('arrowLeft');
+        const arrowRight = document.getElementById('arrowRight');
+
+        const playerWidth = 100, playerHeight = 40;
+        const objectWidth = 50, objectHeight = 20;
+        const cloudWidth = 120, cloudHeight = 60;
+
+        let playerX = canvas.width / 2 - playerWidth / 2;
+        let playerY = canvas.height - playerHeight - 10;
+        let playerSpeed = 5;
+
+        let objects = [], clouds = [], score = 0, lives = 5, gameOver = false;
+
+        let moveLeft = false, moveRight = false, isMoving = false;
+        let lastDirection = 'right'; // Variable para guardar la última dirección
+
+        const dogImageRight = new Image();
+        dogImageRight.src = './bonnie_right.png';
+
+        const dogImageLeft = new Image();
+        dogImageLeft.src = './bonnie_left.png';
+
+        const sausageImage = new Image();
+        sausageImage.src = './sausage.png';
+
+        const newspaperImage = new Image();
+        newspaperImage.src = './newspaper.png';
+
+        const cloudImage = new Image();
+        cloudImage.src = './cloud.png';
+
+        const sunImage = new Image();
+        sunImage.src = './sun.png';
+
+        const pawImageSrc = './paw.png'; // Imagen de huella para representar las vidas
+        const notificationSound = new Audio('./audio_comer.wav');
+        const penaltySound = new Audio('./audio_penalizacion.wav');
+
+        function movePlayer() {
+            if (moveLeft && playerX > 0) {
+                playerX -= playerSpeed;
+                isMoving = true;
+                lastDirection = 'left'; // Actualizar la dirección al moverse a la izquierda
+            } else if (moveRight && playerX < canvas.width - playerWidth) {
+                playerX += playerSpeed;
+                isMoving = true;
+                lastDirection = 'right'; // Actualizar la dirección al moverse a la derecha
+            } else {
+                isMoving = false;
+            }
+        }
+
+        function generateObject() {
+            const x = Math.random() * (canvas.width - objectWidth);
+            const objectType = Math.random() < 0.5 ? 'sausage' : 'newspaper';
+            objects.push({ x, y: 0, speed: 3 + Math.random() * 2, type: objectType });
+        }
+
+        function generateCloud() {
+            const y = Math.random() * 100 - 100;
+            clouds.push({ x: -cloudWidth, y, speed: 0.2 + Math.random() * 0.5 });
+        }
+
+        function drawBackground() {
+            const skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            skyGradient.addColorStop(0, '#1E90FF');
+            skyGradient.addColorStop(0.7, '#87CEEB');
+            skyGradient.addColorStop(1, '#32CD32');
+
+            ctx.fillStyle = skyGradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function drawSun() {
+            const sunSize = 120;
+            ctx.drawImage(sunImage, canvas.width - sunSize - 20, 20, sunSize, sunSize);
+        }
+
+        function drawPlayer() {
+            if (isMoving) {
+                ctx.drawImage(lastDirection === 'left' ? dogImageLeft : dogImageRight, playerX, playerY, playerWidth, playerHeight);
+            } else {
+                // Si no se está moviendo, mantener la dirección anterior
+                ctx.drawImage(lastDirection === 'left' ? dogImageLeft : dogImageRight, playerX, playerY, playerWidth, playerHeight);
+            }
+        }
+
+        function drawObjects() {
+            objects.forEach((obj, index) => {
+                ctx.drawImage(obj.type === 'sausage' ? sausageImage : newspaperImage, obj.x, obj.y, objectWidth, objectHeight);
+                obj.y += obj.speed;
+
+                if (obj.y + objectHeight > playerY && obj.y < playerY + playerHeight &&
+                    obj.x + objectWidth > playerX && obj.x < playerX + playerWidth) {
+                    objects.splice(index, 1);
+                    if (obj.type === 'sausage') {
+                        score += 10;
+                        notificationSound.play();
+                    } else {
+                        lives -= 1;
+                        updateLivesDisplay();
+                        penaltySound.play();
+
+                        // Verifica si las vidas se agotaron
+                        if (lives <= 0) {
+                            gameOver = true; // Termina el juego
+                        }
+                    }
+                }
+
+                if (obj.y > canvas.height) objects.splice(index, 1);
+            });
+        }
+
+        function drawClouds() {
+            clouds.forEach((cloud, index) => {
+                ctx.drawImage(cloudImage, cloud.x, cloud.y, cloudWidth, cloudHeight);
+                cloud.x += cloud.speed;
+                if (cloud.x > canvas.width) clouds.splice(index, 1);
+            });
+        }
+
+        function drawScore() {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.fillRect(10, 10, 150, 40);
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(10, 10, 150, 40);
+            ctx.fillStyle = '#000';
+            ctx.font = '20px Arial';
+            ctx.fillText('Puntaje: ' + score, 20, 37);
+        }
+
+        function updateLivesDisplay() {
+            livesElement.innerHTML = ''; // Limpiar contenedor
+
+            for (let i = 0; i < lives; i++) {
+                const lifeImg = document.createElement('img');
+                lifeImg.src = pawImageSrc;
+                lifeImg.classList.add('life');
+                livesElement.appendChild(lifeImg);
+            }
+        }
+
+        function update() {
+            if (gameOver) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#000';
+                ctx.font = '30px Arial';
+                ctx.fillText('Juego Terminado', canvas.width / 2 - 120, canvas.height / 2);
+                ctx.fillText('Puntaje final: ' + score, canvas.width / 2 - 120, canvas.height / 2 + 40);
+                return; // Detiene la ejecución del juego
+            }
+
+            if (score >= 1000) {
+                gameOver = true;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#000';
+                ctx.font = '30px Arial';
+                ctx.fillText('¡Felicidades! Puntaje máximo alcanzado', canvas.width / 2 - 180, canvas.height / 2);
+                return; // Detiene el juego cuando se alcanza el puntaje
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBackground();
+            drawSun();
+            movePlayer();
+            drawPlayer();
+            drawObjects();
+            drawClouds();
+            drawScore();
+
+            if (Math.random() < 0.02) generateObject();
+            if (Math.random() < 0.01) generateCloud();
+
+            requestAnimationFrame(update);
+        }
+
+        // Eventos táctiles y de teclado
+        arrowLeft.addEventListener('touchstart', () => {
+            moveLeft = true;
+            moveRight = false;
+        });
+
+        arrowRight.addEventListener('touchstart', () => {
+            moveRight = true;
+            moveLeft = false;
+        });
+
+        arrowLeft.addEventListener('touchend', () => {
+            moveLeft = false;
+        });
+
+        arrowRight.addEventListener('touchend', () => {
+            moveRight = false;
+        });
+
+        window.addEventListener('keydown', (event) => {
+            if (event.key === 'ArrowLeft') moveLeft = true;
+            if (event.key === 'ArrowRight') moveRight = true;
+        });
+
+        window.addEventListener('keyup', (event) => {
+            if (event.key === 'ArrowLeft') moveLeft = false;
+            if (event.key === 'ArrowRight') moveRight = false;
+        });
+
+        updateLivesDisplay();
+        update();
+    </script>
+</body>
+</html>
