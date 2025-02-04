@@ -35,25 +35,6 @@
             font-weight: bold;
             color: #000;
         }
-        #arrowContainer {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 20px;
-        }
-        .arrow {
-            width: 50px;
-            height: 50px;
-            background-color: rgba(190, 186, 186, 0.8);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            border-radius: 50%;
-            cursor: pointer;
-            user-select: none; /* Evita la selección de texto en dispositivos táctiles */
-        }
         .end-game-image {
             position: absolute;
             top: 50%;
@@ -95,7 +76,7 @@
     <div id="instructionsContainer">
         <h2>Instrucciones</h2>
         <p>¡Ayuda a Bonnie a comer salchichas y esquivar periódicos!</p>
-        <p>Usa las flechas o los botones para moverte:</p>
+        <p>Usa las flechas del teclado o desliza tu dedo en la pantalla para moverte:</p>
         <ul style="list-style-type: none; padding: 0;">
             <li>← Para moverte a la izquierda</li>
             <li>→ Para moverte a la derecha</li>
@@ -111,12 +92,6 @@
 
     <canvas id="gameCanvas" width="800" height="600"></canvas>
 
-    <!-- Controles de flechas fuera del canvas -->
-    <div id="arrowContainer">
-        <div class="arrow arrow-left" id="arrowLeft">←</div>
-        <div class="arrow arrow-right" id="arrowRight">→</div>
-    </div>
-
     <!-- Imagen de Game Over -->
     <img id="gameOverImage" src="game_over.png" alt="Game Over" class="end-game-image">
 
@@ -127,8 +102,6 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const livesElement = document.getElementById('lives');
-        const arrowLeft = document.getElementById('arrowLeft');
-        const arrowRight = document.getElementById('arrowRight');
         const gameOverImage = document.getElementById('gameOverImage');
         const winImage = document.getElementById('winImage');
         const instructionsContainer = document.getElementById('instructionsContainer');
@@ -319,12 +292,7 @@
             requestAnimationFrame(update);
         }
 
-        // Eventos táctiles y de teclado
-        arrowLeft.addEventListener('mousedown', () => moveLeft = true);
-        arrowRight.addEventListener('mousedown', () => moveRight = true);
-        arrowLeft.addEventListener('mouseup', () => moveLeft = false);
-        arrowRight.addEventListener('mouseup', () => moveRight = false);
-
+        // Eventos táctiles
         canvas.addEventListener('touchstart', (e) => {
             const touchX = e.touches[0].clientX;
             if (touchX < canvas.width / 2) {
@@ -338,6 +306,7 @@
             moveLeft = moveRight = false;
         });
 
+        // Eventos de teclado
         window.addEventListener('keydown', (e) => {
             if (e.key === 'ArrowLeft') moveLeft = true;
             if (e.key === 'ArrowRight') moveRight = true;
