@@ -2,43 +2,42 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Bonnieeeeeeeeeee parque!!!!</title>
     <style>
         body {
             text-align: center;
             font-family: Arial, sans-serif;
-            position: relative;
             margin: 0;
             padding: 0;
+            overflow: hidden;
+            touch-action: none; /* Evita el desplazamiento en dispositivos táctiles */
         }
         canvas {
             border: 2px solid black;
             display: block;
-            margin: 40px auto;
-            position: relative;
+            margin: 20px auto;
+            background-color: #87CEEB;
         }
         #livesContainer {
-            position: absolute;
-            top: 20px;
-            right: 50px;
             display: flex;
             align-items: center;
-            gap: 10px;
+            justify-content: center;
+            gap: 5px;
+            margin-top: 10px; /* Espacio entre el título y las vidas */
         }
         .life {
-            width: 50px;
-            height: 50px;
+            width: 30px;
+            height: 30px;
         }
         #livesText {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: bold;
-            color: #fff;
+            color: #000;
         }
-        /* Controles de flechas fuera del canvas */
         #arrowContainer {
-            position: absolute;
-            bottom: -60px; /* Ajustado para que esté debajo del canvas */
+            position: fixed;
+            bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
             display: flex;
@@ -53,17 +52,60 @@
             align-items: center;
             border-radius: 50%;
             cursor: pointer;
+            user-select: none; /* Evita la selección de texto en dispositivos táctiles */
         }
-        .arrow-left { background-image: url('left-arrow.png'); }
-        .arrow-right { background-image: url('right-arrow.png'); }
+        .end-game-image {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+            z-index: 10;
+            width: 200px;
+            height: auto;
+        }
+        /* Estilos para el contenedor de instrucciones */
+        #instructionsContainer {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            z-index: 20;
+        }
+        #startButton {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
     <h1>Bonnieeeeeeeeeee parque!!!!</h1>
 
+    <!-- Contenedor de instrucciones -->
+    <div id="instructionsContainer">
+        <h2>Instrucciones</h2>
+        <p>¡Ayuda a Bonnie a comer salchichas y esquivar periódicos!</p>
+        <p>Usa las flechas o los botones para moverte:</p>
+        <ul style="list-style-type: none; padding: 0;">
+            <li>← Para moverte a la izquierda</li>
+            <li>→ Para moverte a la derecha</li>
+        </ul>
+        <p>¡Cuidado! Los periódicos te quitan vidas.</p>
+        <button id="startButton">Comenzar</button>
+    </div>
+
     <!-- Contenedor de vidas (huellas) -->
     <div id="livesContainer">
-        <span id="livesText">Vidas</span>
         <div id="lives"></div>
     </div>
 
@@ -71,9 +113,15 @@
 
     <!-- Controles de flechas fuera del canvas -->
     <div id="arrowContainer">
-        <div class="arrow arrow-left" id="arrowLeft"></div>
-        <div class="arrow arrow-right" id="arrowRight"></div>
+        <div class="arrow arrow-left" id="arrowLeft">←</div>
+        <div class="arrow arrow-right" id="arrowRight">→</div>
     </div>
+
+    <!-- Imagen de Game Over -->
+    <img id="gameOverImage" src="game_over.png" alt="Game Over" class="end-game-image">
+
+    <!-- Imagen de Victoria -->
+    <img id="winImage" src="you_win.png" alt="You Win" class="end-game-image">
 
     <script>
         const canvas = document.getElementById('gameCanvas');
@@ -81,6 +129,21 @@
         const livesElement = document.getElementById('lives');
         const arrowLeft = document.getElementById('arrowLeft');
         const arrowRight = document.getElementById('arrowRight');
+        const gameOverImage = document.getElementById('gameOverImage');
+        const winImage = document.getElementById('winImage');
+        const instructionsContainer = document.getElementById('instructionsContainer');
+        const startButton = document.getElementById('startButton');
+
+        // Ajustar el tamaño del canvas para dispositivos móviles
+        function resizeCanvas() {
+            const maxWidth = window.innerWidth * 0.9;
+            const maxHeight = window.innerHeight * 0.7;
+            const scale = Math.min(maxWidth / 800, maxHeight / 600);
+            canvas.width = 800 * scale;
+            canvas.height = 600 * scale;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
 
         const playerWidth = 100, playerHeight = 40;
         const objectWidth = 50, objectHeight = 20;
@@ -93,39 +156,47 @@
         let objects = [], clouds = [], score = 0, lives = 5, gameOver = false;
 
         let moveLeft = false, moveRight = false, isMoving = false;
-        let lastDirection = 'right'; // Variable para guardar la última dirección
+        let lastDirection = 'right';
 
-        const dogImageRight = new Image();
-        dogImageRight.src = './bonnie_right.png';
+        // Pre-cargar imágenes y sonidos
+        const images = {
+            dogRight: new Image(),
+            dogLeft: new Image(),
+            sausage: new Image(),
+            newspaper: new Image(),
+            cloud: new Image(),
+            sun: new Image(),
+            paw: new Image(),
+        };
+        images.dogRight.src = 'bonnie_right.png';
+        images.dogLeft.src = 'bonnie_left.png';
+        images.sausage.src = 'sausage.png';
+        images.newspaper.src = 'newspaper.png';
+        images.cloud.src = 'cloud.png';
+        images.sun.src = 'sun.png';
+        images.paw.src = 'paw.png';
 
-        const dogImageLeft = new Image();
-        dogImageLeft.src = './bonnie_left.png';
+        const sounds = {
+            notification: new Audio('audio_comer.wav'),
+            penalty: new Audio('audio_penalizacion.wav'),
+            win: new Audio('win_sound.mp3'), // Nuevo sonido de victoria
+        };
 
-        const sausageImage = new Image();
-        sausageImage.src = './sausage.png';
-
-        const newspaperImage = new Image();
-        newspaperImage.src = './newspaper.png';
-
-        const cloudImage = new Image();
-        cloudImage.src = './cloud.png';
-
-        const sunImage = new Image();
-        sunImage.src = './sun.png';
-
-        const pawImageSrc = './paw.png'; // Imagen de huella para representar las vidas
-        const notificationSound = new Audio('./audio_comer.wav');
-        const penaltySound = new Audio('./audio_penalizacion.wav');
+        // Ocultar instrucciones y comenzar el juego
+        startButton.addEventListener('click', () => {
+            instructionsContainer.style.display = 'none';
+            update();
+        });
 
         function movePlayer() {
             if (moveLeft && playerX > 0) {
                 playerX -= playerSpeed;
                 isMoving = true;
-                lastDirection = 'left'; // Actualizar la dirección al moverse a la izquierda
+                lastDirection = 'left';
             } else if (moveRight && playerX < canvas.width - playerWidth) {
                 playerX += playerSpeed;
                 isMoving = true;
-                lastDirection = 'right'; // Actualizar la dirección al moverse a la derecha
+                lastDirection = 'right';
             } else {
                 isMoving = false;
             }
@@ -147,28 +218,22 @@
             skyGradient.addColorStop(0, '#1E90FF');
             skyGradient.addColorStop(0.7, '#87CEEB');
             skyGradient.addColorStop(1, '#32CD32');
-
             ctx.fillStyle = skyGradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
 
         function drawSun() {
             const sunSize = 120;
-            ctx.drawImage(sunImage, canvas.width - sunSize - 20, 20, sunSize, sunSize);
+            ctx.drawImage(images.sun, canvas.width - sunSize - 20, 20, sunSize, sunSize);
         }
 
         function drawPlayer() {
-            if (isMoving) {
-                ctx.drawImage(lastDirection === 'left' ? dogImageLeft : dogImageRight, playerX, playerY, playerWidth, playerHeight);
-            } else {
-                // Si no se está moviendo, mantener la dirección anterior
-                ctx.drawImage(lastDirection === 'left' ? dogImageLeft : dogImageRight, playerX, playerY, playerWidth, playerHeight);
-            }
+            ctx.drawImage(lastDirection === 'left' ? images.dogLeft : images.dogRight, playerX, playerY, playerWidth, playerHeight);
         }
 
         function drawObjects() {
             objects.forEach((obj, index) => {
-                ctx.drawImage(obj.type === 'sausage' ? sausageImage : newspaperImage, obj.x, obj.y, objectWidth, objectHeight);
+                ctx.drawImage(obj.type === 'sausage' ? images.sausage : images.newspaper, obj.x, obj.y, objectWidth, objectHeight);
                 obj.y += obj.speed;
 
                 if (obj.y + objectHeight > playerY && obj.y < playerY + playerHeight &&
@@ -176,16 +241,11 @@
                     objects.splice(index, 1);
                     if (obj.type === 'sausage') {
                         score += 10;
-                        notificationSound.play();
+                        sounds.notification.play();
                     } else {
                         lives -= 1;
                         updateLivesDisplay();
-                        penaltySound.play();
-
-                        // Verifica si las vidas se agotaron
-                        if (lives <= 0) {
-                            gameOver = true; // Termina el juego
-                        }
+                        sounds.penalty.play();
                     }
                 }
 
@@ -195,7 +255,7 @@
 
         function drawClouds() {
             clouds.forEach((cloud, index) => {
-                ctx.drawImage(cloudImage, cloud.x, cloud.y, cloudWidth, cloudHeight);
+                ctx.drawImage(images.cloud, cloud.x, cloud.y, cloudWidth, cloudHeight);
                 cloud.x += cloud.speed;
                 if (cloud.x > canvas.width) clouds.splice(index, 1);
             });
@@ -213,13 +273,16 @@
         }
 
         function updateLivesDisplay() {
-            livesElement.innerHTML = ''; // Limpiar contenedor
-
+            livesElement.innerHTML = '';
             for (let i = 0; i < lives; i++) {
                 const lifeImg = document.createElement('img');
-                lifeImg.src = pawImageSrc;
+                lifeImg.src = images.paw.src;
                 lifeImg.classList.add('life');
                 livesElement.appendChild(lifeImg);
+            }
+            if (lives <= 0) {
+                gameOver = true;
+                gameOverImage.style.display = 'block';
             }
         }
 
@@ -228,9 +291,7 @@
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 ctx.fillStyle = '#000';
                 ctx.font = '30px Arial';
-                ctx.fillText('Juego Terminado', canvas.width / 2 - 120, canvas.height / 2);
-                ctx.fillText('Puntaje final: ' + score, canvas.width / 2 - 120, canvas.height / 2 + 40);
-                return; // Detiene la ejecución del juego
+                return;
             }
 
             if (score >= 1000) {
@@ -238,8 +299,9 @@
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 ctx.fillStyle = '#000';
                 ctx.font = '30px Arial';
-                ctx.fillText('¡Felicidades! Puntaje máximo alcanzado', canvas.width / 2 - 180, canvas.height / 2);
-                return; // Detiene el juego cuando se alcanza el puntaje
+                winImage.style.display = 'block';
+                sounds.win.play(); // Reproducir sonido de victoria
+                return;
             }
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -258,36 +320,38 @@
         }
 
         // Eventos táctiles y de teclado
-        arrowLeft.addEventListener('touchstart', () => {
-            moveLeft = true;
-            moveRight = false;
+        arrowLeft.addEventListener('mousedown', () => moveLeft = true);
+        arrowRight.addEventListener('mousedown', () => moveRight = true);
+        arrowLeft.addEventListener('mouseup', () => moveLeft = false);
+        arrowRight.addEventListener('mouseup', () => moveRight = false);
+
+        canvas.addEventListener('touchstart', (e) => {
+            const touchX = e.touches[0].clientX;
+            if (touchX < canvas.width / 2) {
+                moveLeft = true;
+            } else {
+                moveRight = true;
+            }
         });
 
-        arrowRight.addEventListener('touchstart', () => {
-            moveRight = true;
-            moveLeft = false;
+        canvas.addEventListener('touchend', () => {
+            moveLeft = moveRight = false;
         });
 
-        arrowLeft.addEventListener('touchend', () => {
-            moveLeft = false;
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') moveLeft = true;
+            if (e.key === 'ArrowRight') moveRight = true;
         });
 
-        arrowRight.addEventListener('touchend', () => {
-            moveRight = false;
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft') moveLeft = false;
+            if (e.key === 'ArrowRight') moveRight = false;
         });
 
-        window.addEventListener('keydown', (event) => {
-            if (event.key === 'ArrowLeft') moveLeft = true;
-            if (event.key === 'ArrowRight') moveRight = true;
-        });
-
-        window.addEventListener('keyup', (event) => {
-            if (event.key === 'ArrowLeft') moveLeft = false;
-            if (event.key === 'ArrowRight') moveRight = false;
-        });
-
-        updateLivesDisplay();
-        update();
+        // Iniciar el juego
+        window.onload = () => {
+            updateLivesDisplay();
+        };
     </script>
 </body>
 </html>
